@@ -83,7 +83,7 @@ def match(voter_finger):
             for match in matches:
                 score += match.distance
             score_threshold = 10
-            if score/len(matches) < score_threshold:
+            if len(matches) > 0 and (score/len(matches)) < score_threshold:
                 verified_aadhar = directory[j].split(".")
                 verified_aadhar = verified_aadhar[0]
                 break

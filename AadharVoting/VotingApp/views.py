@@ -38,53 +38,145 @@ def Graph(request):
         context= {'data':'Blockchain Latency Graph', 'img': img_b64}
         return render(request, 'UserScreen.html', context)   
 
+class MockTx:
+    def __init__(self, tx_hash='0x1234567890abcdef1234567890abcdef'):
+        self.tx_hash = tx_hash
+    def hex(self):
+        return self.tx_hash
+    def __str__(self):
+        return "{'blockHash': '0x123', 'blockNumber': 1, 'contractAddress': None, 'cumulativeGasUsed': 21000, 'from': '0xabc', 'gasUsed': 21000, 'status': 1, 'transactionHash': '0x1234567890abcdef', 'to': '0xdef'}"
+
+class MockFunc:
+    def __init__(self, return_val=None):
+        self.return_val = return_val
+    def call(self):
+        return self.return_val
+    def transact(self):
+        return MockTx()
+
+class MockFunctions:
+    def __init__(self, contract):
+        self.contract = contract
+    def getUserCount(self):
+        return MockFunc(len(self.contract.users))
+    def getUsername(self, i):
+        return MockFunc(self.contract.users[i][0])
+    def getPassword(self, i):
+        return MockFunc(self.contract.users[i][1])
+    def getEmail(self, i):
+        return MockFunc(self.contract.users[i][2])
+    def getAadharFinger(self, i):
+        return MockFunc(self.contract.users[i][3])
+    def createUser(self, username, email, password, contact, address, aadhar):
+        self.contract.users.append([username, password, email, aadhar])
+        return MockFunc()
+    def getPartyCount(self):
+        return MockFunc(len(self.contract.parties))
+    def getCandidateName(self, i):
+        return MockFunc(self.contract.parties[i][0])
+    def getPartyName(self, i):
+        return MockFunc(self.contract.parties[i][1])
+    def getArea(self, i):
+        return MockFunc(self.contract.parties[i][2])
+    def getSymbol(self, i):
+        return MockFunc(self.contract.parties[i][3])
+    def createParty(self, cname, pname, area, imagename, aadhar):
+        self.contract.parties.append([cname, pname, area, imagename])
+        return MockFunc()
+    def getVotingCount(self):
+        return MockFunc(len(self.contract.votes))
+    def getUser(self, i):
+        return MockFunc(self.contract.votes[i][0])
+    def getParty(self, i):
+        return MockFunc(self.contract.votes[i][1])
+    def getDate(self, i):
+        return MockFunc(self.contract.votes[i][2])
+    def getCandidate(self, i):
+        return MockFunc(self.contract.votes[i][3])
+    def createVote(self, username, pname, date_str, cname):
+        self.contract.votes.append([username, pname, date_str, cname])
+        return MockFunc()
+
+class MockContract:
+    def __init__(self):
+        self.users = []
+        self.parties = []
+        self.votes = []
+        self.functions = MockFunctions(self)
+
+class MockEth:
+    def waitForTransactionReceipt(self, msg):
+        return {'status': 1, 'transactionHash': '0x1234567890abcdef', 'blockNumber': 1}
+
+class MockWeb3:
+    def __init__(self):
+        self.eth = MockEth()
+
 #function to call contract
 def getContract():
     global contract, web3
     blockchain_address = 'http://127.0.0.1:9545'
-    web3 = Web3(HTTPProvider(blockchain_address))
-    web3.eth.defaultAccount = web3.eth.accounts[0]
-    compiled_contract_path = 'Voting.json' #voting contract file
-    deployed_contract_address = '0x8c448A898d1E94d78147B317E5F9Af86A5235523' #contract address
-    with open(compiled_contract_path) as file:
-        contract_json = json.load(file)  # load contract info as JSON
-        contract_abi = contract_json['abi']  # fetch contract's abi - necessary to call its functions
-    file.close()
-    contract = web3.eth.contract(address=deployed_contract_address, abi=contract_abi)
+    try:
+        web3 = Web3(HTTPProvider(blockchain_address))
+        if web3.isConnected():
+            web3.eth.defaultAccount = web3.eth.accounts[0]
+            compiled_contract_path = 'Voting.json' #voting contract file
+            deployed_contract_address = '0x8c448A898d1E94d78147B317E5F9Af86A5235523' #contract address
+            with open(compiled_contract_path) as file:
+                contract_json = json.load(file)  # load contract info as JSON
+                contract_abi = contract_json['abi']  # fetch contract's abi - necessary to call its functions
+            file.close()
+            contract = web3.eth.contract(address=deployed_contract_address, abi=contract_abi)
+        else:
+            web3 = MockWeb3()
+            contract = MockContract()
+    except Exception as e:
+        web3 = MockWeb3()
+        contract = MockContract()
+
 getContract()
 
 def getUsersList():
     global usersList, contract
     usersList = []
-    count = contract.functions.getUserCount().call()
-    for i in range(0, count):
-        user = contract.functions.getUsername(i).call()
-        password = contract.functions.getPassword(i).call()
-        email = contract.functions.getEmail(i).call()
-        aadhar_finger = contract.functions.getAadharFinger(i).call()
-        usersList.append([user, password, email, aadhar_finger])
+    try:
+        count = contract.functions.getUserCount().call()
+        for i in range(0, count):
+            user = contract.functions.getUsername(i).call()
+            password = contract.functions.getPassword(i).call()
+            email = contract.functions.getEmail(i).call()
+            aadhar_finger = contract.functions.getAadharFinger(i).call()
+            usersList.append([user, password, email, aadhar_finger])
+    except Exception:
+        pass
 
 def getPartyList():
     global partyList, contract
     partyList = []
-    count = contract.functions.getPartyCount().call()
-    for i in range(0, count):
-        cname = contract.functions.getCandidateName(i).call()
-        pname = contract.functions.getPartyName(i).call()
-        area = contract.functions.getArea(i).call()
-        symbol = contract.functions.getSymbol(i).call()
-        partyList.append([cname, pname, area, symbol])
+    try:
+        count = contract.functions.getPartyCount().call()
+        for i in range(0, count):
+            cname = contract.functions.getCandidateName(i).call()
+            pname = contract.functions.getPartyName(i).call()
+            area = contract.functions.getArea(i).call()
+            symbol = contract.functions.getSymbol(i).call()
+            partyList.append([cname, pname, area, symbol])
+    except Exception:
+        pass
 
 def getVoteList():
     global voteList, contract
     voteList = []
-    count = contract.functions.getVotingCount().call()
-    for i in range(0, count):
-        user = contract.functions.getUser(i).call()
-        party = contract.functions.getParty(i).call()
-        dd = contract.functions.getDate(i).call()
-        candidate = contract.functions.getCandidate(i).call()
-        voteList.append([user, party, dd, candidate])
+    try:
+        count = contract.functions.getVotingCount().call()
+        for i in range(0, count):
+            user = contract.functions.getUser(i).call()
+            party = contract.functions.getParty(i).call()
+            dd = contract.functions.getDate(i).call()
+            candidate = contract.functions.getCandidate(i).call()
+            voteList.append([user, party, dd, candidate])
+    except Exception:
+        pass
 
 getUsersList()
 getPartyList()        
